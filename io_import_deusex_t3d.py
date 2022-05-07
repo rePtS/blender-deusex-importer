@@ -24,7 +24,7 @@ bl_info = {
     
 class ImportT3dData(Operator, ImportHelper):
     """Import a DeusEx T3D scene file into Blender"""
-    bl_idname = "import_t3d.some_data"  # important since its how bpy.ops.import_test.some_data is constructed
+    bl_idname = "import_deusex_t3d.some_data"  # important since its how bpy.ops.import_test.some_data is constructed
     bl_label = "Import DeusEx T3D Data"
 
     # ImportHelper mixin class uses this
