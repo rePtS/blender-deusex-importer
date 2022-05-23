@@ -73,6 +73,9 @@ class Actor:
             self._object.scale = scaleVec
 
         # Устанавливаем центральную точку актора
+        # Актуально только для тех акторов, для которых загружаем данные о меше.
+        # В настоящее время, есть акторы (например, DeusexMover), у которых есть и
+        # мэш и pivot-точки, но которые пока не требуется загружать
         if len(self._pptag) > 0 and self._object.data:
             prepivotVec = mathutils.Vector()
             for item in self._pptag:
@@ -247,11 +250,12 @@ class Brush(Actor):
                 vertexarray.reverse()
                 vertextuple = tuple(vertexarray)
                 # print('END POLYGON')
+                bm.faces.new( vertextuple )
 
             fileline = file.readline()
 
         # Полученный меш имеет дублирующиеся вершины. Удалим их,
-        # иначе будут проблемы при вырезании мешей
+        # иначе будут проблемы при выполнении CSG-операций
         bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=0.0001)
 
         # Finish up, write the bmesh back to the mesh        
@@ -273,32 +277,32 @@ class Brush(Actor):
                 if (self._csgadd or self._csgsubtract):
                     self.setTransform()
 
-                # if self._csgadd:
-                #     bpy.ops.object.select_all(action='DESELECT')
-                #     self._object.select_set(True)
-                #     bpy.context.object.display_type = 'WIRE'
-                #     bpy.ops.object.duplicate()
-                #     worldCSG.select_set(True)
-                #     bpy.context.view_layer.objects.active = worldCSG                    
-                #     bpy.ops.object.join()
+                if self._csgadd:
+                    bpy.ops.object.select_all(action='DESELECT')
+                    self._object.select_set(True)
+                    bpy.context.object.display_type = 'WIRE'
+                    bpy.ops.object.duplicate()
+                    worldCSG.select_set(True)
+                    bpy.context.view_layer.objects.active = worldCSG                    
+                    bpy.ops.object.join()
 
-                # if self._csgsubtract:
-                #     bpy.context.object.display_type = 'WIRE'
+                if self._csgsubtract:
+                    bpy.context.object.display_type = 'WIRE'
 
-                #     #scale is the key to good booleans - needed some overlap
-                #     #overwriting transform place in xfrom function
-                #     bpy.ops.object.select_all(action='DESELECT')
-                #     self._object.select_set(True)
-                #     bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY', center='MEDIAN')
-                #     bpy.context.object.scale *= 1.0001
+                    #scale is the key to good booleans - needed some overlap
+                    #overwriting transform place in xfrom function
+                    bpy.ops.object.select_all(action='DESELECT')
+                    self._object.select_set(True)
+                    bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY', center='MEDIAN')
+                    bpy.context.object.scale *= 1.0001
 
-                #     bpy.context.view_layer.objects.active = worldCSG
-                #     bpy.ops.object.modifier_add(type='BOOLEAN')
-                #     bpy.context.object.modifiers[Brush.BOONAME].object = self._object
-                #     bpy.context.object.modifiers[Brush.BOONAME].solver = 'EXACT'
-                #     bpy.context.object.modifiers[Brush.BOONAME].use_hole_tolerant = True
-                #     #bpy.context.object.modifiers[BOONAME].use_self = True
-                #     bpy.ops.object.modifier_apply(modifier="Boolean")
+                    bpy.context.view_layer.objects.active = worldCSG
+                    bpy.ops.object.modifier_add(type='BOOLEAN')
+                    bpy.context.object.modifiers[Brush.BOONAME].object = self._object
+                    bpy.context.object.modifiers[Brush.BOONAME].solver = 'EXACT'
+                    bpy.context.object.modifiers[Brush.BOONAME].use_hole_tolerant = True
+                    #bpy.context.object.modifiers[BOONAME].use_self = True
+                    bpy.ops.object.modifier_apply(modifier="Boolean")
 
                 break
 
@@ -383,7 +387,7 @@ class Map:
 # ImportHelper is a helper class, defines filename and
 # invoke() function which calls the file selector.
 from bpy_extras.io_utils import ImportHelper
-from bpy.props import StringProperty, FloatProperty #BoolProperty, EnumProperty, 
+from bpy.props import StringProperty, FloatProperty
 from bpy.types import Operator
 
 
