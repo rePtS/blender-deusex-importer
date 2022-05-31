@@ -2,7 +2,7 @@ bl_info = {
     "name": "DeusEx T3D Import",
     "description": "Imports a DeusEx T3D file",
     "author": "Petr S.",
-    "version": (1, 0),
+    "version": (1, 1),
     "blender": (2, 80, 0),
     "location": "File > Import",
     "support": "COMMUNITY",
@@ -34,6 +34,13 @@ def parsePropertyValue(propertyValueString):
         return splits[0], None
     else:
         return splits[0], splits[1]
+
+# простой метод для примерного определения того, что объекты пересекаются
+def overlap(objA, objB):
+    dimA = max(objA.dimensions)
+    dimB = max(objB.dimensions)
+    dist = objA.location - objB.location
+    return (dist.x**2 + dist.y**2 + dist.z**2) < (dimA + dimB)**2
 
 
 class Actor:
@@ -72,9 +79,9 @@ class Actor:
             #bpy.context.object.scale = scaleVec
             self._object.scale = scaleVec
 
-        # Устанавливаем центральную точку актора
+        # Устанавливаем центральную точку актора.
         # Актуально только для тех акторов, для которых загружаем данные о меше.
-        # В настоящее время, есть акторы (например, DeusexMover), у которых есть и
+        # В настоящее время есть акторы (например, DeusexMover), у которых есть и
         # мэш и pivot-точки, но которые пока не требуется загружать
         if len(self._pptag) > 0 and self._object.data:
             prepivotVec = mathutils.Vector()
@@ -278,15 +285,12 @@ class Brush(Actor):
                     self.setTransform()
 
                 if self._csgadd:
-                    bpy.ops.object.select_all(action='DESELECT')
-                    self._object.select_set(True)
-                    bpy.context.object.display_type = 'WIRE'
-                    bpy.ops.object.duplicate()
-                    worldCSG.select_set(True)
-                    bpy.context.view_layer.objects.active = worldCSG                    
-                    bpy.ops.object.join()
 
-                if self._csgsubtract:
+                    # просто добавляем объект в список аддитивных объектов
+                    # нужно ли его дублировать в wireframe?
+                    Map.meshes.append(self._object)
+
+                if self._csgsubtract:                
                     bpy.context.object.display_type = 'WIRE'
 
                     #scale is the key to good booleans - needed some overlap
@@ -296,13 +300,18 @@ class Brush(Actor):
                     bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY', center='MEDIAN')
                     bpy.context.object.scale *= 1.0001
 
-                    bpy.context.view_layer.objects.active = worldCSG
-                    bpy.ops.object.modifier_add(type='BOOLEAN')
-                    bpy.context.object.modifiers[Brush.BOONAME].object = self._object
-                    bpy.context.object.modifiers[Brush.BOONAME].solver = 'EXACT'
-                    bpy.context.object.modifiers[Brush.BOONAME].use_hole_tolerant = True
-                    #bpy.context.object.modifiers[BOONAME].use_self = True
-                    bpy.ops.object.modifier_apply(modifier="Boolean")
+                    # проходимся по всему списку аддитивных объектов и из каждого пытаемся вырезать
+                    # данный объект
+                    for meshObj in Map.meshes:
+                        if overlap(meshObj, self._object):
+                            bpy.context.view_layer.objects.active = meshObj
+                            bpy.ops.object.modifier_add(type='BOOLEAN')
+                            bpy.context.object.modifiers[Brush.BOONAME].object = self._object
+                            bpy.context.object.modifiers[Brush.BOONAME].solver = 'EXACT'
+                            bpy.ops.object.modifier_apply(modifier="Boolean")
+                
+                    # удалим объект, он больше не нужен
+                    bpy.ops.object.delete()
 
                 break
 
@@ -340,11 +349,15 @@ class Placeholder(Actor):
 
 class Map:
 
+    meshes = []
+
     def __init__(self):
         scenescale = 1.0
         bpy.ops.mesh.primitive_cube_add(size=7000*scenescale*4)
         bpy.context.object.name = "WorldCSG"
         self._worldCSG = bpy.context.object
+        # главный меш
+        Map.meshes.append(self._worldCSG)
 
     def parse(self, file):
         fileline = file.readline()
