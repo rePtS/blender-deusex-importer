@@ -35,6 +35,7 @@ def parsePropertyValue(propertyValueString):
     else:
         return splits[0], splits[1]
 
+
 # простой метод для примерного определения того, что объекты пересекаются
 def overlap(objA, objB):
     dimA = max(objA.dimensions)
@@ -190,8 +191,6 @@ class Actor:
 
 class Brush(Actor):
 
-    BOONAME = "Boolean"
-
     def __init__(self, name):
         super().__init__(name)
         self._csgsubtract = False
@@ -270,7 +269,7 @@ class Brush(Actor):
         bpy.context.view_layer.objects.active = ob
 
 
-    def parse(self, file, worldCSG):
+    def parse(self, file):
         fileline = file.readline()
         while fileline:
             filelinetrim = fileline.strip()
@@ -281,16 +280,16 @@ class Brush(Actor):
                     self.parsePolygons(file)
 
             if filelinetrim.startswith('End Actor'):
-                if (self._csgadd or self._csgsubtract):
-                    self.setTransform()
-
                 if self._csgadd:
+                    self.setTransform()
 
                     # просто добавляем объект в список аддитивных объектов
                     # нужно ли его дублировать в wireframe?
                     Map.meshes.append(self._object)
 
-                if self._csgsubtract:                
+                if self._csgsubtract:                    
+                    self.setTransform()
+                    
                     bpy.context.object.display_type = 'WIRE'
 
                     #scale is the key to good booleans - needed some overlap
@@ -298,7 +297,7 @@ class Brush(Actor):
                     bpy.ops.object.select_all(action='DESELECT')
                     self._object.select_set(True)
                     bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY', center='MEDIAN')
-                    bpy.context.object.scale *= 1.0001
+                    bpy.context.object.scale *= 1.0003
 
                     # проходимся по всему списку аддитивных объектов и из каждого пытаемся вырезать
                     # данный объект
@@ -306,8 +305,9 @@ class Brush(Actor):
                         if overlap(meshObj, self._object):
                             bpy.context.view_layer.objects.active = meshObj
                             bpy.ops.object.modifier_add(type='BOOLEAN')
-                            bpy.context.object.modifiers[Brush.BOONAME].object = self._object
-                            bpy.context.object.modifiers[Brush.BOONAME].solver = 'EXACT'
+                            modifier = bpy.context.object.modifiers["Boolean"]
+                            modifier.object = self._object
+                            modifier.solver = 'EXACT'
                             bpy.ops.object.modifier_apply(modifier="Boolean")
                 
                     # удалим объект, он больше не нужен
@@ -352,12 +352,10 @@ class Map:
     meshes = []
 
     def __init__(self):
-        scenescale = 1.0
-        bpy.ops.mesh.primitive_cube_add(size=7000*scenescale*4)
-        bpy.context.object.name = "WorldCSG"
-        self._worldCSG = bpy.context.object
         # главный меш
-        Map.meshes.append(self._worldCSG)
+        bpy.ops.mesh.primitive_cube_add(size=28000)
+        bpy.context.object.name = "WorldCSG"
+        Map.meshes.append(bpy.context.object)
 
     def parse(self, file):
         fileline = file.readline()
@@ -384,7 +382,7 @@ class Map:
                     light.parse(file)
                 elif actorClass == 'Brush':
                     brush = Brush(actorName)
-                    brush.parse(file, self._worldCSG)
+                    brush.parse(file)
                 else:
                     placeholder = Placeholder(actorName, actorClass)
                     placeholder.parse(file)
