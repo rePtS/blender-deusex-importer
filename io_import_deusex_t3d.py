@@ -106,11 +106,11 @@ class Actor:
         
         # Применяем вращение
         if len(self._rottag) > 0:
-            self._object.rotation_mode = 'ZYX'
+            self._object.rotation_mode = 'XYZ'
             for item in self._rottag:
                 axis, val = parseAxisValue(item)
                 if axis == 'Roll':
-                    self._object.rotation_euler[0] = -val * ROTATION_RATE
+                    self._object.rotation_euler[0] = val * ROTATION_RATE
                 if axis == 'Pitch':
                     self._object.rotation_euler[1] = val * ROTATION_RATE
                 if axis == 'Yaw':
@@ -297,7 +297,7 @@ class Brush(Actor):
                     bpy.ops.object.select_all(action='DESELECT')
                     self._object.select_set(True)
                     bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY', center='MEDIAN')
-                    bpy.context.object.scale *= 1.0003
+                    bpy.context.object.scale *= 1.0001
 
                     # проходимся по всему списку аддитивных объектов и из каждого пытаемся вырезать
                     # данный объект
