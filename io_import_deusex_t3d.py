@@ -56,7 +56,7 @@ class Actor:
         self._postscatag = []
 
 
-    def setTransform(self, scenescale=1.0):
+    def setTransform(self):
         #FOR each vertex of each polygon of parsed brush DO:
         #   do MainScale ... x *= MainScale[x], y *= MainScale[y], z *= MainScale[z]
         #   do translation (-PrePivot[x], -PrePivot[y], -PrePivot[z])
@@ -89,11 +89,11 @@ class Actor:
             for item in self._pptag:
                 axis, val = parseAxisValue(item)
                 if axis == 'X':
-                    prepivotVec.x = val * scenescale
+                    prepivotVec.x = val
                 if axis == 'Y':
-                    prepivotVec.y = -val * scenescale
+                    prepivotVec.y = -val
                 if axis == 'Z':
-                    prepivotVec.z = val * scenescale
+                    prepivotVec.z = val
 
             me = self._object.data
             bm = bmesh.new()
@@ -140,11 +140,11 @@ class Actor:
             for item in self._loctag:
                 axis, val = parseAxisValue(item)
                 if axis == 'X':
-                    locVec.x = val * scenescale
+                    locVec.x = val
                 if axis == 'Y':
-                    locVec.y = -val * scenescale
+                    locVec.y = -val
                 if axis == 'Z':
-                    locVec.z = val * scenescale
+                    locVec.z = val
             self._object.location = locVec
 
 
@@ -215,7 +215,7 @@ class Brush(Actor):
                     self._meshname = value
 
 
-    def parsePolygons(self, file, scenescale=1.0):
+    def parsePolygons(self, file):
         # Create mesh
         me = bpy.data.meshes.new(self._meshname)
 
@@ -244,9 +244,9 @@ class Brush(Actor):
             if filelinetrim.startswith('Vertex'):
                 dataline = filelinetrim.split()
                 xyz = dataline[1].split(',')
-                x = float(xyz[0]) * scenescale
-                y = -float(xyz[1]) * scenescale
-                z = float(xyz[2]) * scenescale
+                x = float(xyz[0])
+                y = -float(xyz[1])
+                z = float(xyz[2])
                 vert = ( x, y, z )
                 vertexarray.append(bm.verts.new(vert))
 
@@ -349,13 +349,15 @@ class Placeholder(Actor):
 
 class Map:
 
+    scale = 1.0
     meshes = []
 
-    def __init__(self):
+    def __init__(self, scenescale):
         # главный меш
         bpy.ops.mesh.primitive_cube_add(size=28000)
         bpy.context.object.name = "WorldCSG"
         Map.meshes.append(bpy.context.object)
+        Map.scale = scenescale
 
     def parse(self, file):
         fileline = file.readline()
@@ -389,10 +391,11 @@ class Map:
 
             fileline = file.readline()
 
-        # Проскейлим все объекты
-        for obj in bpy.context.scene.objects:
-            obj.location *= 0.01
-            obj.scale *= 0.01
+        # Проскейлим все объекты, если нужно
+        if Map.scale != 1.0:
+            for obj in bpy.context.scene.objects:
+                obj.location *= Map.scale
+                obj.scale *= Map.scale
 
 
 # ImportHelper is a helper class, defines filename and
@@ -422,14 +425,13 @@ class ImportT3dData(Operator, ImportHelper):
     # scenescale = FloatProperty(
     scenescale: FloatProperty(
             name="Import Scale",
-            description="scale imported xyz values",
-            #default=0.01,
+            description="scale imported scene",
             default=1.0,
             min=0.0001
             )
 
     def execute(self, context):
-        map = Map()
+        map = Map(self.scenescale)
         with open(self.filepath, 'r', encoding='utf-8') as file:
             map.parse(file)
 
