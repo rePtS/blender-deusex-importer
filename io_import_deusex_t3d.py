@@ -331,9 +331,16 @@ class SpotLight(Actor):
 
     def __init__(self, name):
         super().__init__(name)
-        bpy.ops.object.lamp_add(type='SPOT')
+        bpy.ops.object.light_add(type='SPOT')
         bpy.context.object.name = name
+        bpy.context.object.data.spot_size = 1.57
+        bpy.context.object.data.energy = 11
         self._object = bpy.context.object
+
+    def setTransform(self):
+        # Skip spotlight rotation
+        self._rottag = [];
+        super().setTransform();
 
 
 class Placeholder(Actor):
@@ -376,7 +383,7 @@ class Map:
                     if prop == 'Name':
                         actorName = value
 
-                if actorClass == 'SpotLight':
+                if actorClass == 'Spotlight':
                     spotLight = SpotLight(actorName)
                     spotLight.parse(file)
                 elif actorClass == 'Light':
