@@ -2,7 +2,7 @@ bl_info = {
     "name": "DeusEx T3D Import",
     "description": "Imports a DeusEx T3D file",
     "author": "Petr S.",
-    "version": (1, 1),
+    "version": (1, 2),
     "blender": (2, 80, 0),
     "location": "File > Import",
     "support": "COMMUNITY",
@@ -177,10 +177,12 @@ class Actor:
             fileline = file.readline()
             while fileline:
                 filelinetrim = fileline.strip()
-                self.parseLine(filelinetrim)
+                if self._object != None:
+                    self.parseLine(filelinetrim)
 
                 if filelinetrim.startswith('End Actor'):
-                    self.setTransform()
+                    if self._object != None:
+                        self.setTransform()
                     break
 
                 fileline = file.readline()
@@ -224,7 +226,6 @@ class Brush(Actor):
         self._object = ob
 
         # Link object to scene
-        # bpy.context.scene.objects.link(ob)
         bpy.context.scene.collection.objects.link(ob)
 
         # Get a BMesh representation
@@ -284,10 +285,9 @@ class Brush(Actor):
                     self.setTransform()
 
                     # просто добавляем объект в список аддитивных объектов
-                    # нужно ли его дублировать в wireframe?
                     Map.meshes.append(self._object)
 
-                if self._csgsubtract:                    
+                if self._csgsubtract:
                     self.setTransform()
                     
                     bpy.context.object.display_type = 'WIRE'
@@ -337,6 +337,9 @@ class SpotLight(Actor):
         bpy.context.object.data.energy = 11
         self._object = bpy.context.object
 
+        #self._object.parent = Map.meshes[0]
+        #self._object.matrix_parent_inverse = Map.meshes[0].matrix_world.inverted()
+
     def setTransform(self):
         # Skip spotlight rotation
         self._rottag = [];
@@ -347,24 +350,27 @@ class Placeholder(Actor):
 
     def __init__(self, name, actorClass):
         super().__init__(name)
-        bpy.ops.object.empty_add(type='PLAIN_AXES')
-        bpy.context.object.name = "ue4proxy_" + name
-        # add custom attribute
-        bpy.context.object['proxy_smname'] = actorClass
-        self._object = bpy.context.object
+        if Map.importUnvisuals:
+            bpy.ops.object.empty_add(type='PLAIN_AXES')
+            bpy.context.object.name = "ue4proxy_" + name
+            # add custom attribute
+            bpy.context.object['proxy_smname'] = actorClass
+            self._object = bpy.context.object
 
 
 class Map:
 
+    importUnvisuals = False
     scale = 1.0
     meshes = []
 
-    def __init__(self, scenescale):
+    def __init__(self, scenescale, importUnvisuals):
         # главный меш
         bpy.ops.mesh.primitive_cube_add(size=28000)
         bpy.context.object.name = "WorldCSG"
         Map.meshes.append(bpy.context.object)
         Map.scale = scenescale
+        Map.importUnvisuals = importUnvisuals
 
     def parse(self, file):
         fileline = file.readline()
@@ -408,7 +414,7 @@ class Map:
 # ImportHelper is a helper class, defines filename and
 # invoke() function which calls the file selector.
 from bpy_extras.io_utils import ImportHelper
-from bpy.props import StringProperty, FloatProperty
+from bpy.props import StringProperty, FloatProperty, BoolProperty
 from bpy.types import Operator
 
 
@@ -437,8 +443,15 @@ class ImportT3dData(Operator, ImportHelper):
             min=0.0001
             )
 
+    # Flag if we should import positions of the unvisual objects from T3D-file
+    importUnvisuals: BoolProperty(
+            name="Import Unvisuals",
+            description="import positions of triggers, sounds, path nodes, etc.",
+            default=False
+            )
+
     def execute(self, context):
-        map = Map(self.scenescale)
+        map = Map(self.scenescale, self.importUnvisuals)
         with open(self.filepath, 'r', encoding='utf-8') as file:
             map.parse(file)
 
