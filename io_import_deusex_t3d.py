@@ -14,10 +14,14 @@ import bpy
 import bmesh
 import os
 import mathutils
+import colorsys
+import math
 
+
+PI = math.pi #3.141592653589793
 
 # Коэффициент для преобразования вращения формата T3D в формат Blender
-ROTATION_RATE = 3.141592653589793 * 2.0 / 65536.0
+ROTATION_RATE = PI * 2.0 / 65536.0
 
 # Парсит строки вида "X=1234"
 # и возвращает пару из строки слева (от знака равно) и числа справа
@@ -325,6 +329,25 @@ class Light(Actor):
         bpy.ops.object.light_add(type='POINT')
         bpy.context.object.name = name
         self._object = bpy.context.object
+        self._hue = 0
+        self._saturation = 0
+
+
+    def parseLine(self, filelinetrim):
+        super().parseLine(filelinetrim)
+        prop, value = parsePropertyValue(filelinetrim)
+
+        if prop == 'LightBrightness':
+            self._object.data.energy = float(value)
+        elif prop == 'LightHue':
+            self._hue = float(value)
+        elif prop == 'LightSaturation':
+            self._saturation = float(value)
+        elif prop == 'LightRadius':
+            self._object.data.use_custom_distance = True
+            self._object.data.cutoff_distance = float(value) * math.pow(Map.scale, 0.3) # scale light radius according map scale factor (with some fixes)
+        elif prop == 'End Actor':
+            self._object.data.color = colorsys.hsv_to_rgb(self._hue / 255.0, self._saturation / 255.0, 1.0)
 
 
 class SpotLight(Actor):
@@ -332,18 +355,40 @@ class SpotLight(Actor):
     def __init__(self, name):
         super().__init__(name)
         bpy.ops.object.light_add(type='SPOT')
-        bpy.context.object.name = name
-        bpy.context.object.data.spot_size = 1.57
-        bpy.context.object.data.energy = 11
+        bpy.context.object.name = name        
         self._object = bpy.context.object
+        self._hue = 0
+        self._saturation = 0
 
         #self._object.parent = Map.meshes[0]
         #self._object.matrix_parent_inverse = Map.meshes[0].matrix_world.inverted()
+
 
     def setTransform(self):
         # Skip spotlight rotation
         self._rottag = [];
         super().setTransform();
+
+
+    def parseLine(self, filelinetrim):
+        super().parseLine(filelinetrim)
+        prop, value = parsePropertyValue(filelinetrim)
+
+        if prop == 'LightBrightness':
+            self._object.data.energy = float(value)
+        elif prop == 'LightHue':
+            self._hue = float(value)
+        elif prop == 'LightSaturation':
+            self._saturation = float(value)
+        elif prop == 'LightRadius':
+            self._object.data.use_custom_distance = True
+            self._object.data.cutoff_distance = float(value) * math.pow(Map.scale, 0.3) # scale light radius according map scale factor (with some fixes)
+        elif prop == 'LightCone':
+            spot_ratio = float(value) / 255.0
+            self._object.data.spot_size = spot_ratio * PI
+            self._object.data.spot_blend = (1.0 - spot_ratio) * 0.7 + 0.15
+        elif prop == 'End Actor':
+            self._object.data.color = colorsys.hsv_to_rgb(self._hue / 255.0, self._saturation / 255.0, 1.0)
 
 
 class Placeholder(Actor):
@@ -352,7 +397,7 @@ class Placeholder(Actor):
         super().__init__(name)
         if Map.importUnvisuals:
             bpy.ops.object.empty_add(type='PLAIN_AXES')
-            bpy.context.object.name = "ue4proxy_" + name
+            bpy.context.object.name = "proxy_" + name
             # add custom attribute
             bpy.context.object['proxy_smname'] = actorClass
             self._object = bpy.context.object
