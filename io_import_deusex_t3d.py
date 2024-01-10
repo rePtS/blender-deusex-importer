@@ -20,11 +20,11 @@ import math
 
 PI = math.pi #3.141592653589793
 
-# Коэффициент для преобразования вращения формата T3D в формат Blender
+# A coefficient for converting the rotation from the T3D format to the Blender format
 ROTATION_RATE = PI * 2.0 / 65536.0
 
-# Парсит строки вида "X=1234"
-# и возвращает пару из строки слева (от знака равно) и числа справа
+# Parses strings of the form "X=1234"
+# and returns a pair of the string on the left (from the equal sign) and the number on the right
 def parseAxisValue(axisValueString):
     splits = axisValueString.split('=')
     return splits[0], float(splits[1])
@@ -40,7 +40,7 @@ def parsePropertyValue(propertyValueString):
         return splits[0], splits[1]
 
 
-# простой метод для примерного определения того, что объекты пересекаются
+# A simple method for roughly determining that objects intersect
 def overlap(objA, objB):
     dimA = max(objA.dimensions)
     dimB = max(objB.dimensions)
@@ -70,7 +70,7 @@ class Actor:
         #   do translation (Location[x], Location[y], Location[z])
         #ENDFOR
 
-        # Применяем масштабирование
+        # Applying scaling
         if len(self._scatag) > 0:
             scaleVec = mathutils.Vector((1.0, 1.0, 1.0))
             for item in self._scatag:
@@ -84,10 +84,10 @@ class Actor:
             #bpy.context.object.scale = scaleVec
             self._object.scale = scaleVec
 
-        # Устанавливаем центральную точку актора.
-        # Актуально только для тех акторов, для которых загружаем данные о меше.
-        # В настоящее время есть акторы (например, DeusexMover), у которых есть и
-        # мэш и pivot-точки, но которые пока не требуется загружать
+        # Set the central point of the actor.
+        # It is relevant only for actors we upload mesh data.
+        # Currently, there are some actors (for example, DeusexMover)
+        # having both mesh and pivot points that do not need to be loaded yet
         if len(self._pptag) > 0 and self._object.data:
             prepivotVec = mathutils.Vector()
             for item in self._pptag:
@@ -108,7 +108,7 @@ class Actor:
             bm.to_mesh(me)
             me.update()
         
-        # Применяем вращение
+        # Applying rotation
         if len(self._rottag) > 0:
             self._object.rotation_mode = 'XYZ'
             for item in self._rottag:
@@ -120,7 +120,7 @@ class Actor:
                 if axis == 'Yaw':
                     self._object.rotation_euler[2] = -val * ROTATION_RATE
 
-        # Применяем масштабирование (в старых координатах до вращения)
+        # Applying scaling (in the old coordinates before rotation)
         if len(self._postscatag) > 0:
             postScaleVec = mathutils.Vector((1.0, 1.0, 1.0))
             for item in self._postscatag:
@@ -138,7 +138,7 @@ class Actor:
             self._object.scale.y *= abs(postScaleVec.y)
             self._object.scale.z *= abs(postScaleVec.z)
 
-        # Указываем местоположения актора
+        # Specifying the location of the actor
         if len(self._loctag) > 0:
             locVec = mathutils.Vector()
             for item in self._loctag:
@@ -265,8 +265,8 @@ class Brush(Actor):
 
             fileline = file.readline()
 
-        # Полученный меш имеет дублирующиеся вершины. Удалим их,
-        # иначе будут проблемы при выполнении CSG-операций
+        # The resulting mesh has duplicate vertices. We will delete them,
+        # otherwise there will be problems with performing CSG operations
         bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=0.0001)
 
         # Finish up, write the bmesh back to the mesh        
@@ -288,7 +288,7 @@ class Brush(Actor):
                 if self._csgadd:
                     self.setTransform()
 
-                    # просто добавляем объект в список аддитивных объектов
+                    # just appending current object to the list of additive objects
                     Map.meshes.append(self._object)
 
                 if self._csgsubtract:
@@ -296,15 +296,14 @@ class Brush(Actor):
                     
                     bpy.context.object.display_type = 'WIRE'
 
-                    #scale is the key to good booleans - needed some overlap
-                    #overwriting transform place in xfrom function
+                    # scale is the key to good CSG operations - needed some overlap
                     bpy.ops.object.select_all(action='DESELECT')
                     self._object.select_set(True)
                     bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY', center='MEDIAN')
                     bpy.context.object.scale *= 1.0001
 
-                    # проходимся по всему списку аддитивных объектов и из каждого пытаемся вырезать
-                    # данный объект
+                    # go through the list of the additive objects
+                    # and try to cut current substarctable object out of each one
                     for meshObj in Map.meshes:
                         if overlap(meshObj, self._object):
                             bpy.context.view_layer.objects.active = meshObj
@@ -314,7 +313,7 @@ class Brush(Actor):
                             modifier.solver = 'EXACT'
                             bpy.ops.object.modifier_apply(modifier="Boolean")
                 
-                    # удалим объект, он больше не нужен
+                    # delete current substarctable object, it is no longer needed
                     bpy.ops.object.delete()
 
                 break
@@ -410,7 +409,7 @@ class Map:
     meshes = []
 
     def __init__(self, scenescale, importUnvisuals):
-        # главный меш
+        # Main mesh
         bpy.ops.mesh.primitive_cube_add(size=28000)
         bpy.context.object.name = "WorldCSG"
         Map.meshes.append(bpy.context.object)
@@ -425,7 +424,7 @@ class Map:
                 actorClass = ''
                 actorName = ''
 
-                # Получаем тип и наименование актора
+                # Get the type and name of the actor
                 splits = fileline.split()
                 for item in splits:
                     prop, value = parsePropertyValue(item)
@@ -449,7 +448,7 @@ class Map:
 
             fileline = file.readline()
 
-        # Проскейлим все объекты, если нужно
+        # Scale all the objects, if necessary
         if Map.scale != 1.0:
             for obj in bpy.context.scene.objects:
                 obj.location *= Map.scale
@@ -505,7 +504,7 @@ class ImportT3dData(Operator, ImportHelper):
 
 # Only needed if you want to add into a dynamic menu
 def menu_func_import(self, context):
-    self.layout.operator(ImportT3dData.bl_idname, text="T3D Import Operator")
+    self.layout.operator(ImportT3dData.bl_idname, text="DeusEx T3D (.t3d)")
 
 
 classes = [
