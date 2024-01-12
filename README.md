@@ -1,6 +1,6 @@
 # blender-deusex-importer
 
-Deus Ex t3d-files import plugin for [Blender](https://www.blender.org), that provides a simple method of importing level data (static geometry, positions of prefabs, light sources data) used in DeusEx game.
+Deus Ex t3d-files import plugin for [Blender](https://www.blender.org), that provides a simple method of importing level data (static geometry, positions of prefabs, light sources data) used in the Deus Ex game.
 
 <img src="/images/unatco_island-1.png"/>
 
